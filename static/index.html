@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LearnForge Support Assistant Demo</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --chat-bg: #0b132b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --user-bubble: #1d4ed8;
+      --assistant-bubble: #1e293b;
+      --escalated-bg: rgba(245, 158, 11, 0.12);
+      --escalated-border: #f59e0b;
+      --escalated-badge: #d97706;
+      --tag-bg: #334155;
+      --tag-text: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      height: 90vh;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #192339;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-title h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .header-title p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .session-badge {
+      font-size: 0.75rem;
+      background: var(--border);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      color: #cbd5e1;
+      font-family: monospace;
+    }
+
+    .chat-log {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background: var(--chat-bg);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 10px;
+      line-height: 1.5;
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      color: #ffffff;
+      border-bottom-right-radius: 2px;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--assistant-bubble);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 2px;
+    }
+
+    .message.assistant.escalated {
+      background: var(--escalated-bg);
+      border: 1px solid var(--escalated-border);
+    }
+
+    .escalation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--escalated-badge);
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .sources-list {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .source-tag {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.75rem;
+    }
+
+    .input-area {
+      padding: 16px 20px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+    }
+
+    .input-area input {
+      flex: 1;
+      padding: 12px 16px;
+      background: #0b132b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-area input:focus {
+      border-color: var(--primary);
+    }
+
+    .input-area button {
+      padding: 12px 24px;
+      background: var(--primary);
+      border: none;
+      border-radius: 8px;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .input-area button:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .input-area button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .loading-indicator {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-style: italic;
+      padding-left: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-title">
+        <h1>LearnForge Support Assistant</h1>
+        <p>Conversational RAG prototype with automatic escalation</p>
+      </div>
+      <div class="session-badge" id="sessionStatus">Initializing session...</div>
+    </div>
+
+    <div class="chat-log" id="chatLog">
+      <div class="message assistant">
+        Hello! I'm the LearnForge Support Assistant. You can ask me about course policies, refunds, certificates, or account settings.
+      </div>
+    </div>
+
+    <form class="input-area" id="chatForm">
+      <input type="text" id="userInput" placeholder="Ask a question (e.g., 'Can I get a refund?')..." autocomplete="off" required />
+      <button type="submit" id="sendBtn">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+    let sessionId = null;
+
+    const chatLog = document.getElementById("chatLog");
+    const chatForm = document.getElementById("chatForm");
+    const userInput = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const sessionStatus = document.getElementById("sessionStatus");
+
+    // Initialize session on load
+    async function initSession() {
+      try {
+        const response = await fetch(`${API_BASE}/session`, { method: "POST" });
+        if (!response.ok) throw new Error("Failed to create session");
+        const data = await response.json();
+        sessionId = data.session_id;
+        sessionStatus.textContent = `Session: ${sessionId.slice(0, 8)}...`;
+      } catch (err) {
+        sessionStatus.textContent = "Backend Offline";
+        sessionStatus.style.background = "#7f1d1d";
+        appendSystemMessage("⚠️ Could not connect to API server at http://127.0.0.1:8000. Please ensure Uvicorn is running.");
+      }
+    }
+
+    function appendMessage(text, role, isEscalated = false, category = null, sources = []) {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = `message ${role}` + (isEscalated ? " escalated" : "");
+
+      if (isEscalated) {
+        const badge = document.createElement("div");
+        badge.className = "escalation-badge";
+        badge.textContent = `⚠️ Escalated to Human Support (${category || 'Human Review'})`;
+        msgDiv.appendChild(badge);
+      }
+
+      const textDiv = document.createElement("div");
+      textDiv.textContent = text;
+      msgDiv.appendChild(textDiv);
+
+      if (sources && sources.length > 0) {
+        const sourcesDiv = document.createElement("div");
+        sourcesDiv.className = "sources-list";
+        sourcesDiv.innerHTML = "<span>Sources:</span> " + sources.map(s => `<span class="source-tag">${s}</span>`).join(" ");
+        msgDiv.appendChild(sourcesDiv);
+      }
+
+      chatLog.appendChild(msgDiv);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    function appendSystemMessage(text) {
+      const div = document.createElement("div");
+      div.className = "message assistant";
+      div.style.borderColor = "#ef4444";
+      div.textContent = text;
+      chatLog.appendChild(div);
+      chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = userInput.value.trim();
+      if (!message || !sessionId) return;
+
+      appendMessage(message, "user");
+      userInput.value = "";
+      userInput.disabled = true;
+      sendBtn.disabled = true;
+
+      // Temporary loading element
+      const loadingDiv = document.createElement("div");
+      loadingDiv.className = "loading-indicator";
+      loadingDiv.id = "loadingIndicator";
+      loadingDiv.textContent = "Assistant is thinking...";
+      chatLog.appendChild(loadingDiv);
+      chatLog.scrollTop = chatLog.scrollHeight;
+
+      try {
+        const response = await fetch(`${API_BASE}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, message: message })
+        });
+
+        const loadingElem = document.getElementById("loadingIndicator");
+        if (loadingElem) loadingElem.remove();
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server error (${response.status})`);
+        }
+
+        const data = await response.json();
+        appendMessage(data.answer, "assistant", data.escalated, data.escalation_category, data.source_ids);
+      } catch (err) {
+        const loadingElem = document.getElementById("loadingIndicator");
+        if (loadingElem) loadingElem.remove();
+        appendSystemMessage(`Error: ${err.message}`);
+      } finally {
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    });
+
+    initSession();
+  </script>
+</body>
+</html>
