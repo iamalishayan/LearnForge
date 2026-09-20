@@ -70,6 +70,28 @@ def extract_last_reviewed(text: str, doc_type: str) -> Optional[str]:
     return None
 
 
+# Header regex: matches '# FAQ-01 — Topic', '# POLICY-02 - Topic', '# TICKET-03 — Topic'
+HEADER_PATTERN = re.compile(
+    r"^#\s+((FAQ|POLICY|TICKET)-\d+)\s+[-—–]+\s*(.+)$",
+    re.MULTILINE,
+)
+
+
+def strip_orphan_section_headers(content: str) -> str:
+    """Strip trailing orphan section headers so they don't leak into chunks."""
+    return re.sub(r"SECTION\s+\d+.*", "", content, flags=re.IGNORECASE).strip()
+
+
+def count_headers_in_text(text: str, doc_type: str) -> int:
+    """Count raw header occurrences for a given doc_type prefix in text."""
+    clean_text = strip_orphan_section_headers(text)
+    prefix = doc_type.upper()
+    return sum(
+        1 for match in HEADER_PATTERN.finditer(clean_text)
+        if match.group(2).upper() == prefix
+    )
+
+
 def parse_markdown_file(file_path: Path) -> List[Document]:
     """Parse a knowledge base markdown file into individual entry chunks with metadata.
 
@@ -85,21 +107,15 @@ def parse_markdown_file(file_path: Path) -> List[Document]:
     # Requirement: Strip trailing orphan section headers so they don't leak into chunks
     # (e.g. 'SECTION 2 — POLICY / HELP-CENTER DOCUMENT EXCERPTS' at end of faqs.md,
     # and 'SECTION 3 — PAST SUPPORT TICKET TRANSCRIPTS' at end of policies.md)
-    content = re.sub(r"SECTION\s+\d+.*", "", content, flags=re.IGNORECASE).strip()
+    content = strip_orphan_section_headers(content)
 
     # Split document by '---' separators
     raw_sections = [s.strip() for s in re.split(r"(?m)^---+\s*$", content) if s.strip()]
 
-    # Header regex: matches '# FAQ-01 — Topic', '# POLICY-02 - Topic', '# TICKET-03 — Topic'
-    header_pattern = re.compile(
-        r"^#\s+((FAQ|POLICY|TICKET)-\d+)\s+[-—–]+\s*(.+)$",
-        re.MULTILINE,
-    )
-
     documents: List[Document] = []
 
     for section in raw_sections:
-        match = header_pattern.search(section)
+        match = HEADER_PATTERN.search(section)
         if not match:
             # Skips file-level title headings (e.g., '# LearnForge FAQs')
             continue
@@ -136,17 +152,27 @@ def parse_markdown_file(file_path: Path) -> List[Document]:
 
 
 def load_all_documents(data_dir: Path = DEFAULT_DATA_DIR) -> List[Document]:
-    """Load and chunk all three knowledge base files, validating the total chunk count."""
+    """Load and chunk all three knowledge base files, validating derived chunk counts."""
     files_to_load = [
-        ("faqs.md", 15, "faq"),
-        ("policies.md", 10, "policy"),
-        ("tickets.md", 15, "ticket"),
+        ("faqs.md", "faq"),
+        ("policies.md", "policy"),
+        ("tickets.md", "ticket"),
     ]
 
     all_docs: List[Document] = []
+    total_expected_count = 0
 
-    for filename, expected_count, expected_type in files_to_load:
+    for filename, doc_type in files_to_load:
         file_path = data_dir / filename
+        if not file_path.exists():
+            raise FileNotFoundError(f"Knowledge base file not found: {file_path}")
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw_text = f.read()
+
+        expected_count = count_headers_in_text(raw_text, doc_type)
+        total_expected_count += expected_count
+
         docs = parse_markdown_file(file_path)
         actual_count = len(docs)
 
@@ -157,10 +183,9 @@ def load_all_documents(data_dir: Path = DEFAULT_DATA_DIR) -> List[Document]:
 
         all_docs.extend(docs)
 
-    expected_total = 40
-    if len(all_docs) != expected_total:
+    if len(all_docs) != total_expected_count:
         raise ValueError(
-            f"Expected {expected_total} total chunks (15 FAQs + 10 Policies + 15 Tickets), "
+            f"Expected {total_expected_count} total chunks across all knowledge base files, "
             f"got {len(all_docs)}"
         )
 
